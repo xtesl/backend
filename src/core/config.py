@@ -5,6 +5,7 @@ import warnings
 from typing import Literal, Any
 from pydantic import (
     HttpUrl,
+    AnyUrl,
     BeforeValidator,
     model_validator,
     PostgresDsn,
@@ -13,6 +14,14 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from typing_extensions import Self
 
+
+def parse_cors(v: Any) -> list[str] | str:
+    if isinstance(v, str) and not v.startswith("["):
+        return [i.strip() for i in v.split(",")]
+    elif isinstance(v, list | str):
+        return v
+    raise ValueError(v)
+    
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file="./.env",
@@ -25,8 +34,15 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week of expiration time
     # FRONTEND_URL: str
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    BACKEND_CORS_ORIGINS: Annotated[
+        list[AnyUrl] | str, BeforeValidator(parse_cors)
+    ] = [] 
     
-    
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def all_cors_origins(self) -> list[str]:
+        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS]
+
     PROJECT_NAME: str
     FRONTEND_HOST: str
     
