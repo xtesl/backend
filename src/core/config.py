@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     )
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = secrets.token_urlsafe(32)
-    # 60 minutes * 24 hours * 8 days = 8 days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 1 week of expiration time
     # FRONTEND_URL: str
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     
@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     # TODO: update type to EmailStr when sqlmodel supports it
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_PASSWORD: str
+    
+    GOOGLE_CLIENT_ID: str | None = ""
+    GOOGLE_OAUTH_REDIRECT_URL: str | None = ""
+    STATE: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = ""
     
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 1
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 30

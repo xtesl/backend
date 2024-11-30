@@ -29,14 +29,14 @@ def generate_jwt_token(sub: str| Any, duration: timedelta) -> str:
     return endcoded_jwt
 
 
-def verify_jwt_token(token: str) -> str | None:
+def verify_jwt_token(token: str) -> dict | None:
     try:
         decoded_token = jwt.decode(
             token, settings.SECRET_KEY,
             algorithms=[ALGORITHM]
         )
         
-        return str(decoded_token["sub"]) 
+        return decoded_token
     
     except InvalidTokenError:
         return None
@@ -55,8 +55,8 @@ def authenticate(session: Session, email: EmailStr, password: str) -> UserAccoun
     return None
 
 
-def create_access_token(subject: str | Any, expires_delta: timedelta) -> str:
+def create_token(subject: str | Any, expires_delta: timedelta, type: str) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
-    to_encode = {"exp": expire, "sub": str(subject)}
+    to_encode = {"exp": expire, "sub": str(subject), "token_type": type}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

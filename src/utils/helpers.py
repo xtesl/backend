@@ -1,11 +1,12 @@
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, Optional, Dict
 from pathlib import Path 
 from dataclasses import dataclass
 import logging
 
 from jwt.exceptions import InvalidTokenError
 import jwt
+import requests
 from jinja2 import Template
 from pydantic import EmailStr
 from fastapi import HTTPException
@@ -151,5 +152,43 @@ def offset_pagination_metadata(offset: int, limit: int, total: int, trailing_url
    }
     
     
+
+def make_request(
+    method: str,
+    url: str,
+    params: Optional[Dict[str, Any]] = None,
+    data: Optional[Dict[str, Any]] = None,
+    json: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> Any:
+    """
+    Makes an HTTP request.
     
+    Args:
+       method: HTTP method(GET, PUT, POST, DELETE, etc.).
+       url: Full URL of the endpoint.
+       params: Query parameters for GET requests.
+       data: Form data for POST/PUT requests.
+       json: JSON data for POST/PUT requests.
+       headers: Additional HTTP headers.
+    
+    Returns:
+        Parsed JSON response or raw text.
+    """
+    try:
+        response = requests.request(
+            method, url,
+            params=params, data=data,
+            json=json, headers=headers
+        )
+        
+        response.raise_for_status()
+        return response.json() # Parse json if possible
+    
+    except requests.exceptions.HTTPError as e:
+            raise RuntimeError(f"""HTTP error: {response.status_code} -
+                               {response.text}""") from e
+    except ValueError:
+        # Return raw text if json parsing fails.
+        return response.text
     

@@ -24,8 +24,9 @@ class Base(SQLModel):
     
 
 # JSON payload containing access token
-class Token(SQLModel):
+class Tokens(SQLModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
