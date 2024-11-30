@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from urllib.parse import quote_plus
 import secrets
 import warnings
-from typing import Literal, Any
+from typing import Literal, Any, Annotated
 from pydantic import (
     HttpUrl,
     AnyUrl,
