@@ -88,7 +88,7 @@ def set_del_auth_credentials(
         key=token_type,
         value=token,
         httponly=True,
-        samesite="none",
+        samesite="lax",
         secure=False,
         max_age=expire_time * 60 # Convert from minutes to seconds
     )
