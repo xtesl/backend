@@ -10,6 +10,7 @@ app = FastAPI(debug=True)
 # Create database tables
 # init_db()
 # Set all CORS enabled origins
+
 if settings.all_cors_origins:
     app.add_middleware(
         CORSMiddleware,

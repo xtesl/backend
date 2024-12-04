@@ -5,7 +5,7 @@ import jwt
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
 from sqlmodel import Session
-from fastapi import Depends, HTTPException, status, Query, Path
+from fastapi import Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordBearer
 
 
@@ -24,33 +24,42 @@ from src.jobs.models import Job
 T = TypeVar("T")
 
 reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
+    tokenUrl=f"/auth/login/token",
+    auto_error=False
 )
 
 def get_db() -> Generator[Session, None, None]:
     with Session(engine) as session:
         yield session
 
-
 SessionDep = Annotated[Session, Depends(get_db)]
-TokenDep = Annotated[str, reusable_oauth2]
+TokenDep = Annotated[str, Depends(reusable_oauth2)]
 
-def get_current_user(session: SessionDep, token: TokenDep) -> UserAccount:
+def get_current_user(session: SessionDep, request: Request) -> UserAccount:
+    """
+    Uses Cookies authentication for the authorization process.
+    """
     try:
-         payload = jwt.decode(
+        token = request.cookies.get("access_token")
+        
+        payload = jwt.decode(
              token, settings.SECRET_KEY,
              algorithms=[security.ALGORITHM]
          )
-         token_data = TokenPayload(**payload)
+        token_data = TokenPayload(**payload)
+        
     except (InvalidTokenError, ValidationError):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
         
     user = session.get(UserAccount, token_data.sub)
+    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
     return user
 
 CurrentUser = Annotated[UserAccount, Depends(get_current_user)]

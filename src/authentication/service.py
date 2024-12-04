@@ -1,11 +1,15 @@
 from typing import Any
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from sqlmodel import Session
 from fastapi import HTTPException, status, Response
 from pydantic import EmailStr
 
-from .utils import authenticate, create_token, verify_jwt_token, generate_jwt_token
+from .utils import (
+    authenticate, create_token, 
+    verify_jwt_token, generate_jwt_token, 
+    set_del_auth_credentials
+  )
 from src.users.models import AccountStatus, UserAccount
 from src.models import Tokens
 from src.core.config import settings
@@ -127,28 +131,26 @@ class AuthService:
                 status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"
             )
-        
        
     def refreshAccessToken(self, res: Response, refreshToken: str | None) -> None:
         """
-        Refresh access tokens when refresh token is valid.
+        Refresh access tokens
         """
         decoded_token = self.verifyToken(res=res, token=refreshToken)
         
         if decoded_token:
             # Refresh access token
-            access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-            res.set_cookie(
-             key="access_token",
-             value=create_token(
-                decoded_token['sub'],
-                access_token_expires,
-                type="access",
-            ),
-             httponly=True,
-             max_age=3600 # cookie expires in 1hr
-         )
-            
+            set_del_auth_credentials(
+                token_type="access_token",
+                response=res,
+                token_data=decoded_token["sub"]
+            )
+        
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated"
+            )
     
     def OAuth2PasswordAuth(self, res: Response, form_data: Any) -> None:
         """
@@ -156,43 +158,26 @@ class AuthService:
         """
         user = authenticate(self.session, form_data.username, form_data.password)
         if not user:
-            raise HTTPException(400, "Invalid credentials")
+            raise HTTPException(401, "Invalid credentials")
+        
         # Users with account statuses of suspended and deactivated can't login
         not_allowed_statuses = [AccountStatus.SUSPENDED, AccountStatus.DEACTIVATED]
         if user.status in not_allowed_statuses:
             raise HTTPException(403, "Account not active") 
         
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        refresh_token_expires = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+        # Set authentication credentials
+        set_del_auth_credentials(token_type="access_token", response=res, token_data=user.pk)
+        set_del_auth_credentials(token_type="refresh_token", response=res, token_data=user.pk)
         
-        tokens = Tokens(
-            access_token=create_token(
-                user.pk,
-                access_token_expires,
-                type="access",
-            ),
-            refresh_token=create_token(
-                user.pk,
-                refresh_token_expires,
-                type="refresh",
-            )
-        )
-        
-        # Authentication credentials set as httponly cookies
-        res.set_cookie(
-             key="access_token",
-             value=tokens.access_token,
-             httponly=True,
-             max_age=3600 # cookie expires in 1hr
-         )
-        res.set_cookie(
-             key="refresh_token",
-             value=tokens.refresh_token,
-             httponly=True,
-             max_age=3600 * 24 * 7 # cookie expires in 1 week
-         )
+        # Update last login
+        user.last_login = datetime.now()
+        save(session=self.session, data=user)
          
-    
+    def deleteAuthCredentials(self, res: Response) -> None:
+        set_del_auth_credentials(token_type="access_token", operation="delete", response=res)
+        set_del_auth_credentials(token_type="refresh_token", operation="delete", response=res)
+
+        
     def verify_email(self, token: str) -> None:
         user_pk = verify_jwt_token(token)
         if user_pk:

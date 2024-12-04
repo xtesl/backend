@@ -140,12 +140,16 @@ class UserService:
     #     return response_data
     
     
-    def get_user(self, type_details: bool = False) -> UserAccount:
+    def get_user(self, type_details: bool) -> UserAccount:
          """
-         Retrieve user's account details.It includes user account type details.
+         Retrieve user's account details.It may include user's account type details.
          """
          # Admins are associated with only basic account details.
          if self.current_user.type is AccountType.ADMIN:
+             return self.current_user
+         
+        # Retrieve user without account type details
+         if not type_details:
              return self.current_user
          
          # Customer account types
@@ -153,17 +157,15 @@ class UserService:
              AccountType.FREELANCER: Freelancer,
              AccountType.EMPLOYER: Employer
          }
+         
          account_type = customer_account_types[self.current_user.type]
+         
          # Account type details
          account_type_details = get_object_or_404(
                self.session,
                account_type.user_account_pk,
                self.current_user.pk,
          )
-         
-         # User without account type details
-         if not type_details:
-             return self.current_user
          
          user_account_data = self.current_user.model_dump() 
          
@@ -173,6 +175,7 @@ class UserService:
                         **user_account_data, 
                         type_details=account_type_details
                      )
+                    
              case AccountType.FREELANCER: 
                     return UserPublicWithTypeDetails(
                          **user_account_data,

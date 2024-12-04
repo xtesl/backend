@@ -1,11 +1,11 @@
 from datetime import timedelta, timezone
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from sqlmodel import Session
 from pydantic import EmailStr
 from passlib.context import CryptContext
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 import jwt
 from jwt.exceptions import InvalidTokenError
 
@@ -28,6 +28,70 @@ def generate_jwt_token(sub: str| Any, duration: timedelta) -> str:
     
     return endcoded_jwt
 
+
+def set_del_auth_credentials(
+    response: Response,
+    token_type: Literal["access_token", "refresh_token"],
+    operation: Literal["set", "delete"] = "set",
+    token_data: str | None = None,
+    ) -> None:
+    """
+    Generates and sets authentication tokens as HTTP-Only cookies.
+    
+    Can also be used for logout process, where you need to delete
+    authentication credentials.
+    
+    Args:
+      token_type: Authentication token type (`access_token`, `refresh_token`).When wrong type is 
+                  passed, `access_token` type will be used.
+      
+      response: The HTTP response object to set the cookies on.
+      
+      token_data: User's data to be used for the JWT token generation i.e sub
+      
+      operation: Operation to be performed, to delete token or set token.
+      returns: `None`
+    """
+    # Delete token
+    if operation == "delete":
+        response.delete_cookie(
+            key=token_type,
+            httponly=True,
+        )
+        
+        return
+        
+    # Tokens expire times
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
+      
+    expire_times = {
+          "access_token": access_token_expires,
+          "resfresh_token": refresh_token_expires
+        }
+    
+    
+    # Select token expiration time
+    try:
+        expire_time = expire_times[token_type]
+    except KeyError:
+        token_type = "access_token"
+        expire_time = expire_times[token_type]
+    
+    token = create_token(
+                token_data,
+                expire_time,
+                type=token_type,
+            )
+    
+    response.set_cookie(
+        key=token_type,
+        value=token,
+        httponly=True,
+        max_age=expire_time * 60 # Convert from minutes to seconds
+    )
+
+      
 
 def verify_jwt_token(token: str) -> dict | None:
     try:

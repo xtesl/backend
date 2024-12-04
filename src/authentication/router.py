@@ -29,6 +29,11 @@ class AuthRouter:
         self._get_service().verifyToken(res, access_token)
         res.status_code = status.HTTP_204_NO_CONTENT
     
+    @router.post("/logout")
+    def logout(self, res: Response) -> Any:
+        self._get_service().deleteAuthCredentials(res=res)
+        res.status_code = status.HTTP_204_NO_CONTENT
+        
     @router.post("/login/token")
     def login(self, 
               form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
